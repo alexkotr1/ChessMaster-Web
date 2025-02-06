@@ -20,9 +20,9 @@ export default function Chess() {
   const [highlightedSquares, setHighlightedSquares] = useState({});
   const [showPromotionDialog, setShowPromotionDialog] = useState(false);
   const [upgradeMessageID, setUpgradeMessageID] = useState("");
-  const [gameOver, setGameOver] = useState(false)
   const [blackTime, setBlackTime] = useState("");
   const [whiteTime, setWhiteTime] = useState("");
+  const [winner, setWinner] = useState("");
   const searchParams = useSearchParams();
   const host = searchParams.get('host') == 'true';
   const [chessboard] = useState(new Chessboard(true));
@@ -37,23 +37,7 @@ export default function Chess() {
     if (!socket) { console.log("socket undefined!"); return; }
     const emitter = socket.emitter;
 
-    emitter.on(RequestCodes.ENEMY_MOVE, () => {
-      let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => setFen(res.data))
-      fenMessage.send();
-
-      let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, null, res => {
-        const response = JSON.parse(res.data);
-        const transformed = Object.keys(response).reduce((map, key) => {
-          const parts = key.split('/');
-          const position = parts[4].toLowerCase() + parts[6];
-          const val = response[key];
-          map[position] = val.map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
-          return map;
-        }, {});
-        setLegalMoves(transformed);
-      });
-      legalMovesMessage.send();
-    });
+    emitter.on(RequestCodes.ENEMY_MOVE, updateBoard);
 
     emitter.on(RequestCodes.REQUEST_UPGRADE, message => {
       setUpgradeMessageID(message.messageID);
@@ -71,6 +55,29 @@ export default function Chess() {
     };
   }, [socket]);
 
+  const updateBoard = () => {
+    let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => setFen(res.data))
+    fenMessage.send();
+
+    let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, host, res => {
+      const response = JSON.parse(res.data);
+      const transformed = Object.keys(response).reduce((map, key) => {
+        const parts = key.split('/');
+        const position = parts[4].toLowerCase() + parts[6];
+        const val = response[key];
+        map[position] = val.map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
+        return map;
+      }, {});
+      setLegalMoves(transformed);
+    });
+    legalMovesMessage.send();
+
+    let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, message => {
+      console.log("Reply checkended: " + message);
+      if (message.data != 'false') setWinner(message.data.toLowerCase());
+    });
+    checkEnded.send();
+  }
   const onPromotionPieceSelect = (piece, orig, dest) => {
     setShowPromotionDialog(false);
     let upgradeTo = piece.charAt(1).toLowerCase();
@@ -102,14 +109,15 @@ export default function Chess() {
   }
 
   const processMove = (sourceSquare, targetSquare) => {
+    const legalPieceMoves = legalMoves[sourceSquare];
     let source = [Utilities.charToInt(sourceSquare.charAt(0)), parseInt(sourceSquare.charAt(1))];
     let target = [Utilities.charToInt(targetSquare.charAt(0)), parseInt(targetSquare.charAt(1))];
     const moveData = JSON.stringify([source, target]);
     const requestMove = new Message(socket, uuid(), RequestCodes.REQUEST_MOVE, moveData, res => {
-      if (res && res.fen) setFen(res.fen)
+      if (res && res.fen) updateBoard();
     });
     requestMove.send();
-    return true;
+    return legalPieceMoves && legalPieceMoves.indexOf(targetSquare).indexOf >= 0;
   }
 
   const isDraggablePiece = ({ piece }) => {
@@ -117,7 +125,9 @@ export default function Chess() {
     return false;
   }
 
+  const resetGame = () => {
 
+  }
 
   const getLegalMoves = (square) => {
     const moves = legalMoves[square];
@@ -193,9 +203,9 @@ export default function Chess() {
       </div>
 
       {/* Win Screen */}
-      {gameOver && (
+      {winner != "" && (
         <div className="win-screen">
-          <h2>{winner === "w" ? "White Wins!" : "Black Wins!"}</h2>
+          <h2>{winner === "white" ? "White Wins!" : "Black Wins!"}</h2>
           <button className="restart-button" onClick={resetGame}>Play Again</button>
         </div>
       )}
