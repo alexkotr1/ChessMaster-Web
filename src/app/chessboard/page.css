@@ -1,0 +1,124 @@
+/* Main Container */
+.chess-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 50px;
+    background: #121212;
+    /* Dark background */
+    min-height: 100vh;
+    justify-content: center;
+    padding: 20px;
+    color: #f1f1f1;
+}
+
+/* Game Title */
+.game-title {
+    font-size: 2.5rem;
+    font-family: 'Roboto', sans-serif;
+    color: #fff;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    margin-bottom: 30px;
+    transition: color 0.3s ease;
+}
+
+.game-title:hover {
+    color: #ff9900;
+}
+
+/* Game Status Bar (Timer and Captured Pieces) */
+.game-status-bar {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.timer-container {
+    display: flex;
+    gap: 20px;
+}
+
+.timer {
+    background: #2c2c2c;
+    padding: 10px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.captured-pieces {
+    display: flex;
+    gap: 50px;
+}
+
+.captured-pieces-list {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.captured-piece {
+    background-color: #444;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #f1f1f1;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.win-screen {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 30px 50px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.win-screen h2 {
+    font-size: 2.5rem;
+}
+
+.restart-button {
+    background-color: #ff5733;
+    color: white;
+    font-size: 1.2rem;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.restart-button:hover {
+    background-color: #ff3300;
+}
+
+.board-container {
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    background-color: #1e1e1e;
+    padding: 10px;
+    border: 1px solid #333;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #121212;
+    /* Dark background */
+    color: #f1f1f1;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
