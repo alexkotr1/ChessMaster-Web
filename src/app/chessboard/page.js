@@ -26,6 +26,7 @@ export default function Chess() {
   const searchParams = useSearchParams();
   const host = searchParams.get('host') == 'true';
   const [chessboard] = useState(new Chessboard(true));
+  const orientation = host ? "white" : "black"
 
 
   useEffect(() => {
@@ -60,9 +61,7 @@ export default function Chess() {
     });
 
     emitter.on(RequestCodes.TIMER, message => {
-      console.log(`Timer = ${message.data}`);
       const timers = JSON.parse(message.data);
-      console.log(timers);
       setWhiteTime(timers[0]);
       setBlackTime(timers[1]);
     })
@@ -74,7 +73,6 @@ export default function Chess() {
 
   const onPromotionPieceSelect = (piece, orig, dest) => {
     setShowPromotionDialog(false);
-    console.log(`piece = ${piece} orig = ${orig} dest = ${dest}`);
     let upgradeTo = piece.charAt(1).toLowerCase();
     if (upgradeTo == "q") upgradeTo = "Vasilissa"
     else if (upgradeTo == "n") upgradeTo = "Alogo"
@@ -104,7 +102,6 @@ export default function Chess() {
   }
 
   const processMove = (sourceSquare, targetSquare) => {
-    console.log(`sourceSquare = ${sourceSquare} | targetSquare=${targetSquare}`)
     let source = [Utilities.charToInt(sourceSquare.charAt(0)), parseInt(sourceSquare.charAt(1))];
     let target = [Utilities.charToInt(targetSquare.charAt(0)), parseInt(targetSquare.charAt(1))];
     const moveData = JSON.stringify([source, target]);
@@ -115,10 +112,9 @@ export default function Chess() {
     return true;
   }
 
-  const isDraggablePiece = ({ piece, square }) => {
-    if (piece.startsWith("w") && host && chessboard.whiteTurn) return true;
-    else if (!host && piece.startsWith("b") && !chessboard.whiteTurn) return true;
-    else return false;
+  const isDraggablePiece = ({ piece }) => {
+    if ((piece.startsWith("w") && host && chessboard.whiteTurn) || (!host && piece.startsWith("b") && !chessboard.whiteTurn)) return true;
+    return false;
   }
 
 
@@ -191,6 +187,7 @@ export default function Chess() {
           showPromotionDialog={showPromotionDialog}
           onPromotionPieceSelect={onPromotionPieceSelect}
           promotionDialogVariant="modal"
+          boardOrientation={orientation}
           onPromotionCheck={() => { return false; }}
         />
       </div>
