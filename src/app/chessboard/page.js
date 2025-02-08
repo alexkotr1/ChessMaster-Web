@@ -2,18 +2,20 @@
 import { useEffect, useState } from "react";
 import { Chessboard as ReactChessboard } from "react-chessboard";
 import { useSocket } from "@/context/context";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { v4 as uuid } from 'uuid';
 
 import RequestCodes from "@/RequestCodes";
 import Chessboard from "@/Classes/Chessboard";
 import Message from "@/Message";
 import Utilities from "@/Classes/Utilities";
+import Timer from "@/Classes/Timer";
 import styles from './page.css';
 
 
 export default function Chess() {
   const socket = useSocket();
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [boardState, setBoardState] = useState("start");
   const [legalMoves, setLegalMoves] = useState({});
@@ -23,11 +25,34 @@ export default function Chess() {
   const [blackTime, setBlackTime] = useState("");
   const [whiteTime, setWhiteTime] = useState("");
   const [winner, setWinner] = useState("");
+  const [chessboard] = useState(new Chessboard(true));
   const searchParams = useSearchParams();
   const host = searchParams.get('host') == 'true';
-  const [chessboard] = useState(new Chessboard(true));
+  const minutes = searchParams.get('minutes');
   const orientation = host ? "white" : "black"
+  const minutesAllowed = parseInt(minutes);
+  const [blackTimer, setBlackTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
+    setBlackTime(blackTimer.getRemainingTime() <= 0 ? 0 : blackTimer.getRemainingTime());
+  }))
+  const [whiteTimer, setWhiteTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
+    setWhiteTime(whiteTimer.getRemainingTime() <= 0 ? 0 : whiteTimer.getRemainingTime());
+  }));
 
+
+
+
+  useEffect(() => {
+    if (!socket) {
+      router.push("/");
+    }
+  }, [socket]);
+
+
+  useEffect(() => {
+    setBlackTime(blackTimer.getRemainingTime());
+    setWhiteTime(whiteTimer.getRemainingTime());
+
+  }, [])
 
   useEffect(() => {
     setIsClient(true);
@@ -36,7 +61,7 @@ export default function Chess() {
   useEffect(() => {
     if (!socket) { console.log("socket undefined!"); return; }
     const emitter = socket.emitter;
-
+    whiteTimer.start();
     emitter.on(RequestCodes.ENEMY_MOVE, updateBoard);
 
     emitter.on(RequestCodes.REQUEST_UPGRADE, message => {
@@ -46,38 +71,63 @@ export default function Chess() {
 
     emitter.on(RequestCodes.TIMER, message => {
       const timers = JSON.parse(message.data);
-      setWhiteTime(timers[0]);
-      setBlackTime(timers[1]);
-    })
+      whiteTimer.setRemainingTime(timers[0]);
+      blackTimer.setRemainingTime(timers[1]);
+      whiteTimer.start();
+      blackTimer.onTick();
+    });
 
     return () => {
       emitter.off(RequestCodes.ENEMY_MOVE);
     };
   }, [socket]);
 
-  const updateBoard = () => {
-    let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => setFen(res.data))
-    fenMessage.send();
 
-    let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, host, res => {
-      const response = JSON.parse(res.data);
-      const transformed = Object.keys(response).reduce((map, key) => {
-        const parts = key.split('/');
-        const position = parts[4].toLowerCase() + parts[6];
-        const val = response[key];
-        map[position] = val.map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
-        return map;
-      }, {});
-      setLegalMoves(transformed);
-    });
-    legalMovesMessage.send();
+  useEffect(() => {
+    async function update() {
+      await updateBoard();
+    }
+    update();
+  }, []);
 
-    let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, message => {
-      console.log("Reply checkended: " + message);
-      if (message.data != 'false') setWinner(message.data.toLowerCase());
+  const updateBoard = async () => {
+    return new Promise((resolve) => {
+      let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => {
+        setFen(res.data);
+        if (chessboard.whiteTurn) {
+          whiteTimer.start();
+          blackTimer.pause();
+        } else {
+          whiteTimer.pause();
+          blackTimer.start();
+        }
+        let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, host, res => {
+          const response = JSON.parse(res.data);
+          const transformed = Object.keys(response).reduce((map, key) => {
+            const parts = key.split('/');
+            const position = parts[4].toLowerCase() + parts[6];
+            const val = response[key];
+            map[position] = val.map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
+            return map;
+          }, {});
+          setLegalMoves(transformed);
+
+          let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, message => {
+            if (message.data && message.data !== 'false') {
+              setWinner(message.data.toLowerCase());
+            }
+            resolve(true);
+          });
+
+          checkEnded.send();
+        });
+
+        legalMovesMessage.send();
+      });
+
+      fenMessage.send();
     });
-    checkEnded.send();
-  }
+  };
   const onPromotionPieceSelect = (piece, orig, dest) => {
     setShowPromotionDialog(false);
     let upgradeTo = piece.charAt(1).toLowerCase();
@@ -110,14 +160,22 @@ export default function Chess() {
 
   const processMove = (sourceSquare, targetSquare) => {
     const legalPieceMoves = legalMoves[sourceSquare];
+    return legalPieceMoves && legalPieceMoves.indexOf(targetSquare).indexOf >= 0;
+  }
+
+  const requestMove = async (sourceSquare, targetSquare) => {
     let source = [Utilities.charToInt(sourceSquare.charAt(0)), parseInt(sourceSquare.charAt(1))];
     let target = [Utilities.charToInt(targetSquare.charAt(0)), parseInt(targetSquare.charAt(1))];
     const moveData = JSON.stringify([source, target]);
-    const requestMove = new Message(socket, uuid(), RequestCodes.REQUEST_MOVE, moveData, res => {
-      if (res && res.fen) updateBoard();
-    });
-    requestMove.send();
-    return legalPieceMoves && legalPieceMoves.indexOf(targetSquare).indexOf >= 0;
+    return new Promise(resolve => {
+      const requestMove = new Message(socket, uuid(), RequestCodes.REQUEST_MOVE, moveData, async res => {
+        if (res && res.fen) {
+          await updateBoard();
+          resolve(true);
+        } else resolve(false);
+      });
+      requestMove.send();
+    })
   }
 
   const isDraggablePiece = ({ piece }) => {
@@ -126,7 +184,15 @@ export default function Chess() {
   }
 
   const resetGame = () => {
-
+    socket.emitter.once(RequestCodes.PLAY_AGAIN_ACCEPTED, async () => {
+      setWinner("false");
+      whiteTimer.setRemainingTime(minutesAllowed * 60 * 1000);
+      blackTimer.setRemainingTime(minutesAllowed * 60 * 1000);
+      await updateBoard();
+      whiteTimer.start();
+    })
+    const playAgainMessage = new Message(socket, uuid(), RequestCodes.PLAY_AGAIN, null, null);
+    playAgainMessage.send();
   }
 
   const getLegalMoves = (square) => {
@@ -187,10 +253,17 @@ export default function Chess() {
       {/* Chessboard */}
       <div className="board-container">
         <ReactChessboard
-          boardWidth={800}
           position={boardState}
           isDraggablePiece={isDraggablePiece}
-          onPieceDrop={processMove}
+          onPieceDrop={async (sourceSquare, targetSquare, piece) => {
+            if (processMove) {
+              const state = chessboard.fenToBoardState(boardState);
+              delete state[sourceSquare];
+              state[targetSquare] = piece;
+              setBoardState(state);
+              await requestMove(sourceSquare, targetSquare);
+            } else return false;
+          }}
           onPieceDragBegin={(piece, square) => getLegalMoves(square)}
           onPieceDragEnd={() => setHighlightedSquares({})}
           customSquareStyles={highlightedSquares}
@@ -203,14 +276,15 @@ export default function Chess() {
       </div>
 
       {/* Win Screen */}
-      {winner != "" && (
+      {(winner.includes("white") || winner.includes("black")) && (
         <div className="win-screen">
-          <h2>{winner === "white" ? "White Wins!" : "Black Wins!"}</h2>
+          <h2>{winner.includes("white") ? "White Wins!" : "Black Wins!"}</h2>
           <button className="restart-button" onClick={resetGame}>Play Again</button>
         </div>
       )}
 
     </div>
+
   );
 
 }

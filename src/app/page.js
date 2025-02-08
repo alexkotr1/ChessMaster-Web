@@ -11,7 +11,7 @@ export default function Home() {
   const [inviteCode, setInviteCode] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
   const [isPlayingAI, setIsPlayingAI] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(10); // Default 10 minutes per player
+  const [selectedTime, setSelectedTime] = useState(10);
   const router = useRouter();
   const socket = useSocket();
 
@@ -25,8 +25,7 @@ export default function Home() {
     })
 
     socket.emitter.once(RequestCodes.SECOND_PLAYER_JOINED, () => {
-      console.log("Hosting game")
-      const queryParams = new URLSearchParams({ host: 'true' }).toString();
+      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
     requestHost.send();
@@ -45,9 +44,9 @@ export default function Home() {
     const parsedMessage = new Message(socket, uuid(), RequestCodes.JOIN_GAME, inviteCode);
     socket.send(parsedMessage.toString());
 
-    socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, () => {
+    socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
       console.log("Redirecting...");
-      const queryParams = new URLSearchParams({ host: 'false' }).toString();
+      const queryParams = new URLSearchParams({ host: 'false', minutes: message.data }).toString();
       router.replace(`/chessboard?${queryParams}`);
     });
 
@@ -78,10 +77,12 @@ export default function Home() {
           value={selectedTime}
           onChange={(e) => setSelectedTime(e.target.value)}
         >
+          <option value={1}>1 min</option>
           <option value={3}>3 min</option>
           <option value={5}>5 min</option>
           <option value={10}>10 min</option>
           <option value={15}>15 min</option>
+          <option value={30}>30 min</option>
         </select>
         <button className="button" onClick={generateInviteCode}>
           Generate Code
