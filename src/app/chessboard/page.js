@@ -229,7 +229,6 @@ export default function Chess() {
             <p>{secondsToTime(blackTime)}</p>
           </div>
         </div>
-
         {/* <div className="captured-pieces">
           <div>
             <h4>Captured White Pieces</h4>
@@ -276,13 +275,16 @@ export default function Chess() {
       </div>
 
       {/* Win Screen */}
-      {(winner.includes("white") || winner.includes("black")) && (
+      {(winner.includes("white") || winner.includes("black") || winner.includes("draw")) && (
         <div className="win-screen">
-          <h2>{winner.includes("white") ? "White Wins!" : "Black Wins!"}</h2>
+          <h2>
+            {winner.includes("white") ? "White Wins!" :
+              winner.includes("black") ? "Black Wins!" :
+                "It's a Draw!"}
+          </h2>
           <button className="restart-button" onClick={resetGame}>Play Again</button>
         </div>
       )}
-
     </div>
 
   );

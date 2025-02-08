@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/context';
 import { v4 as uuid } from 'uuid';
@@ -49,6 +49,7 @@ export default function Home() {
 
     socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
       console.log("Redirecting...");
+
       const queryParams = new URLSearchParams({ host: 'false', minutes: message.data }).toString();
       router.replace(`/chessboard?${queryParams}`);
     });
