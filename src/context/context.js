@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }) => {
             ? process.env.NEXT_PUBLIC_SERVER_IP_LOCAL
             : process.env.NEXT_PUBLIC_SERVER_IP_REMOTE;
 
-        const socketInstance = new WebSocket(`ws://${serverIP}:8025/chat`);
+        const socketInstance = new WebSocket(`wss://${serverIP}:8025/chat`);
         socketInstance.emitter = new WebSocketEventEmitter(socketInstance);
 
         setSocket(socketInstance);
