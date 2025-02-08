@@ -10,7 +10,6 @@ import styles from './page.css';
 export default function Home() {
   const [inviteCode, setInviteCode] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
-  const [isPlayingAI, setIsPlayingAI] = useState(false);
   const [selectedTime, setSelectedTime] = useState(10);
   const router = useRouter();
   const socket = useSocket();
@@ -32,7 +31,11 @@ export default function Home() {
   };
 
   const startGameAgainstAI = () => {
-    setIsPlayingAI(true);
+    const requestVsAI = new Message(socket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
+      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime }).toString();
+      router.replace(`/chessboard?${queryParams}`);
+    })
+    requestVsAI.send();
   };
 
   const joinGameWithCode = (inviteCode) => {
@@ -100,12 +103,6 @@ export default function Home() {
           Play vs AI
         </button>
       </div>
-
-      {isPlayingAI && (
-        <div className="ai-game-message">
-          <p>You're playing against the AI now!</p>
-        </div>
-      )}
 
       <div className="download-container">
         <h3>Download Windows Client</h3>
