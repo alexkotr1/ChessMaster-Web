@@ -54,7 +54,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <h1>Welcome to ChessMaster</h1>
+      <h1>Welcome to ChessMaster!</h1>
       <p>Play against friends or challenge the AI!</p>
 
       <div className="input-container">
