@@ -6,8 +6,10 @@ class WebSocketEventEmitter {
         this.socket.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
-                console.log("received message! ");
-                console.log(message);
+                if (process.env.NODE_ENV === "development") {
+                    console.log("received message! ");
+                    console.log(message);
+                }
                 this.emit(message.code, message);
                 this.emit()
             } catch (error) {
@@ -16,7 +18,7 @@ class WebSocketEventEmitter {
         };
         this.socket.onopen = () => this.emit("open");
         this.socket.onclose = (event) => this.emit("close");
-        this.socket.onerror = (error) => this.emit("error",error);
+        this.socket.onerror = (error) => this.emit("error", error);
     }
 
     on(event, callback) {
@@ -29,7 +31,7 @@ class WebSocketEventEmitter {
     once(event, callback) {
         const wrapper = (data) => {
             callback(data);
-            this.off(event, wrapper); 
+            this.off(event, wrapper);
         };
         this.on(event, wrapper);
     }
@@ -44,7 +46,7 @@ class WebSocketEventEmitter {
         if (this.events[event]) {
             this.events[event].forEach((callback) => callback(data));
         }
-        if (this.events['*']){
+        if (this.events['*']) {
             this.events['*'].forEach((callback) => callback(data));
         }
     }

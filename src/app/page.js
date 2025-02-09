@@ -40,7 +40,7 @@ export default function Home() {
 
   const joinGameWithCode = (inviteCode) => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      console.log("WebSocket is not open.");
+      if (process.env.NODE_ENV === "development") console.log("WebSocket is not open.");
       return;
     }
 
@@ -48,8 +48,6 @@ export default function Home() {
     socket.send(parsedMessage.toString());
 
     socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
-      console.log("Redirecting...");
-
       const queryParams = new URLSearchParams({ host: 'false', minutes: message.data }).toString();
       router.replace(`/chessboard?${queryParams}`);
     });

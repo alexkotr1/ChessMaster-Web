@@ -59,7 +59,10 @@ export default function Chess() {
   }, []);
 
   useEffect(() => {
-    if (!socket) { console.log("socket undefined!"); return; }
+    if (!socket) {
+      if (process.env.NODE_ENV === "development") console.log("socket undefined!");
+      return;
+    }
     const emitter = socket.emitter;
     whiteTimer.start();
     emitter.on(RequestCodes.ENEMY_MOVE, updateBoard);
