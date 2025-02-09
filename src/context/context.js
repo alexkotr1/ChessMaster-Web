@@ -11,15 +11,7 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const serverIP = process.env.NEXT_PUBLIC_LOCAL === "true"
-            ? process.env.NEXT_PUBLIC_SERVER_IP_LOCAL
-            : process.env.NEXT_PUBLIC_SERVER_IP_REMOTE;
-
-        const serverPort = process.env.NEXT_PUBLIC_SERVER_PORT_REMOTE
-            ? process.env.NEXT_PUBLIC_SERVER_PORT_REMOTE
-            : 8025;
-
-        const socketInstance = new WebSocket(`wss://${serverIP}:${serverPort}/chat`);
+        const socketInstance = new WebSocket(`wss://${process.env.NODE_ENV === "development" ? "0.0.0.0:3000" : "chessmaster.gr"}/chat`);
         socketInstance.emitter = new WebSocketEventEmitter(socketInstance);
 
         setSocket(socketInstance);
