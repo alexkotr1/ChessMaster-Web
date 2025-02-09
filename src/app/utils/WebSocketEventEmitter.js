@@ -11,7 +11,6 @@ class WebSocketEventEmitter {
                     console.log(message);
                 }
                 this.emit(message.code, message);
-                this.emit()
             } catch (error) {
                 console.error("Error parsing WebSocket message:", error);
             }
@@ -40,6 +39,10 @@ class WebSocketEventEmitter {
         if (this.events[event]) {
             this.events[event] = this.events[event].filter((cb) => cb !== callback);
         }
+        if (this.events['*']) {
+            this.events['*'] = this.events['*'].filter((cb) => cb !== callback);
+        }
+        console.log("Off function called")
     }
 
     emit(event, data) {

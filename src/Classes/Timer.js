@@ -27,7 +27,6 @@ class Timer {
         if (!this.isRunning) return;
         clearInterval(this.timerId);
         this.isRunning = false;
-        console.log("Pausing timer");
     }
 
     cancel() {

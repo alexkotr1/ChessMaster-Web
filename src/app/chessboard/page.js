@@ -37,6 +37,8 @@ export default function Chess() {
   const [whiteTimer, setWhiteTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
     setWhiteTime(whiteTimer.getRemainingTime() <= 0 ? 0 : whiteTimer.getRemainingTime());
   }));
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
 
 
 
@@ -66,22 +68,15 @@ export default function Chess() {
     const emitter = socket.emitter;
     whiteTimer.start();
     emitter.on(RequestCodes.ENEMY_MOVE, updateBoard);
-
-    emitter.on(RequestCodes.REQUEST_UPGRADE, message => {
-      setUpgradeMessageID(message.messageID);
-      setShowPromotionDialog(true);
-    });
-
-    emitter.on(RequestCodes.TIMER, message => {
-      const timers = JSON.parse(message.data);
-      whiteTimer.setRemainingTime(timers[0]);
-      blackTimer.setRemainingTime(timers[1]);
-      whiteTimer.start();
-      blackTimer.onTick();
-    });
+    emitter.on(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
+    emitter.on(RequestCodes.TIMER, updateTimers);
+    emitter.on(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
 
     return () => {
-      emitter.off(RequestCodes.ENEMY_MOVE);
+      emitter.off(RequestCodes.ENEMY_MOVE, updateBoard);
+      emitter.off(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
+      emitter.off(RequestCodes.TIMER, updateTimers);
+      emitter.off(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
     };
   }, [socket]);
 
@@ -93,6 +88,24 @@ export default function Chess() {
     update();
   }, []);
 
+  const requestUpgrade = (message) => {
+    setUpgradeMessageID(message.messageID);
+    setShowPromotionDialog(true);
+  }
+  const updateTimers = (message) => {
+    const timers = JSON.parse(message.data);
+    whiteTimer.setRemainingTime(timers[0]);
+    blackTimer.setRemainingTime(timers[1]);
+  }
+  const registerMessage = (message) => {
+    console.log("RECEIVED NEW CHAT MESSAGE: " + message.data);
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages, { sender: host ? "Black" : "White", text: message.data }];
+      console.log("New Messages:")
+      console.log(newMessages);
+      return newMessages;
+    });
+  }
   const updateBoard = async () => {
     return new Promise((resolve) => {
       let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => {
@@ -210,7 +223,18 @@ export default function Chess() {
     });
     setHighlightedSquares(newHighlights);
   }
+  const sendMessage = () => {
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages, { sender: host ? "Black" : "White", text: messageInput }];
+      console.log("Self messages:")
+      console.log(newMessages);
+      return newMessages;
+    });
+    setMessageInput("")
+    const chatMessage = new Message(socket, uuid(), RequestCodes.CHAT_MESSAGE, messageInput, null);
+    chatMessage.send();
 
+  }
 
   if (!isClient) {
     return null;
@@ -220,76 +244,79 @@ export default function Chess() {
     <div className="chess-container">
       <h1 className="game-title">Chess Game</h1>
 
-      {/* Game Status Bar */}
-      <div className="game-status-bar">
-        <div className="timer-container">
-          <div className="timer white-time">
-            <h3>White Time</h3>
-            <p>{secondsToTime(whiteTime)}</p>
-          </div>
-          <div className="timer black-time">
-            <h3>Black Time</h3>
-            <p>{secondsToTime(blackTime)}</p>
-          </div>
-        </div>
-        {/* <div className="captured-pieces">
-          <div>
-            <h4>Captured White Pieces</h4>
-            <div className="captured-pieces-list">
-              {capturedWhite.map(piece => (
-                <span key={piece} className="captured-piece">{piece}</span>
-              ))}
+      <div className="game-layout">
+        <div className="board-section">
+          <div className="game-status-bar">
+            <div className="timer-container">
+              <div className="timer white-time">
+                <h3>White Time</h3>
+                <p>{secondsToTime(whiteTime)}</p>
+              </div>
+              <div className="timer black-time">
+                <h3>Black Time</h3>
+                <p>{secondsToTime(blackTime)}</p>
+              </div>
             </div>
           </div>
-          <div>
-            <h4>Captured Black Pieces</h4>
-            <div className="captured-pieces-list">
-              {capturedBlack.map(piece => (
-                <span key={piece} className="captured-piece">{piece}</span>
-              ))}
+
+          <div className="board-chat-container">
+            <div className="board-container">
+              <ReactChessboard
+                position={boardState}
+                isDraggablePiece={isDraggablePiece}
+                onPieceDrop={async (sourceSquare, targetSquare, piece) => {
+                  if (processMove) {
+                    const state = chessboard.fenToBoardState(boardState);
+                    delete state[sourceSquare];
+                    state[targetSquare] = piece;
+                    setBoardState(state);
+                    await requestMove(sourceSquare, targetSquare);
+                  } else return false;
+                }}
+                onPieceDragBegin={(piece, square) => getLegalMoves(square)}
+                onPieceDragEnd={() => setHighlightedSquares({})}
+                customSquareStyles={highlightedSquares}
+                showPromotionDialog={showPromotionDialog}
+                onPromotionPieceSelect={onPromotionPieceSelect}
+                promotionDialogVariant="modal"
+                boardOrientation={orientation}
+                onPromotionCheck={() => { return false; }}
+              />
+            </div>
+
+            <div className="chat-section">
+              <h2>Chat</h2>
+              <div className="chat-window">
+                {messages.map((msg, index) => (
+                  <div key={index} className="chat-message"><strong>{msg.sender}: </strong>{msg.text}</div>
+                ))}
+              </div>
+              <div className="chat-input">
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
+                  placeholder="Type a message..."
+                />
+                <button onClick={sendMessage}>Send</button>
+              </div>
             </div>
           </div>
-        </div> */}
-      </div>
 
-      {/* Chessboard */}
-      <div className="board-container">
-        <ReactChessboard
-          position={boardState}
-          isDraggablePiece={isDraggablePiece}
-          onPieceDrop={async (sourceSquare, targetSquare, piece) => {
-            if (processMove) {
-              const state = chessboard.fenToBoardState(boardState);
-              delete state[sourceSquare];
-              state[targetSquare] = piece;
-              setBoardState(state);
-              await requestMove(sourceSquare, targetSquare);
-            } else return false;
-          }}
-          onPieceDragBegin={(piece, square) => getLegalMoves(square)}
-          onPieceDragEnd={() => setHighlightedSquares({})}
-          customSquareStyles={highlightedSquares}
-          showPromotionDialog={showPromotionDialog}
-          onPromotionPieceSelect={onPromotionPieceSelect}
-          promotionDialogVariant="modal"
-          boardOrientation={orientation}
-          onPromotionCheck={() => { return false; }}
-        />
-      </div>
-
-      {/* Win Screen */}
-      {(winner.includes("white") || winner.includes("black") || winner.includes("draw")) && (
-        <div className="win-screen">
-          <h2>
-            {winner.includes("white") ? "White Wins!" :
-              winner.includes("black") ? "Black Wins!" :
-                "It's a Draw!"}
-          </h2>
-          <button className="restart-button" onClick={resetGame}>Play Again</button>
+          {(winner.includes("white") || winner.includes("black") || winner.includes("draw")) && (
+            <div className="win-screen">
+              <h2>
+                {winner.includes("white") ? "White Wins!" :
+                  winner.includes("black") ? "Black Wins!" :
+                    "It's a Draw!"}
+              </h2>
+              <button className="restart-button" onClick={resetGame}>Play Again</button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
-
   );
 
 }
