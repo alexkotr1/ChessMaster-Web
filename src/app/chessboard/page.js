@@ -30,6 +30,7 @@ export default function Chess() {
   const host = searchParams.get('host') == 'true';
   const minutes = searchParams.get('minutes');
   const orientation = host ? "white" : "black"
+  const vsAI = searchParams.get('vsAI') == 'true';
   const minutesAllowed = parseInt(minutes);
   const [blackTimer, setBlackTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
     setBlackTime(blackTimer.getRemainingTime() <= 0 ? 0 : blackTimer.getRemainingTime());
@@ -98,7 +99,6 @@ export default function Chess() {
     blackTimer.setRemainingTime(timers[1]);
   }
   const registerMessage = (message) => {
-    console.log("RECEIVED NEW CHAT MESSAGE: " + message.data);
     setMessages(prevMessages => {
       const newMessages = [...prevMessages, { sender: host ? "Black" : "White", text: message.data }];
       console.log("New Messages:")
@@ -283,25 +283,27 @@ export default function Chess() {
                 onPromotionCheck={() => { return false; }}
               />
             </div>
+            {!vsAI &&
+              <div className="chat-section">
+                <h2>Chat</h2>
+                <div className="chat-window">
+                  {messages.map((msg, index) => (
+                    <div key={index} className="chat-message"><strong>{msg.sender}: </strong>{msg.text}</div>
+                  ))}
+                </div>
+                <div className="chat-input">
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
+                    placeholder="Type a message..."
+                  />
+                  <button onClick={sendMessage}>Send</button>
+                </div>
+              </div>
+            }
 
-            <div className="chat-section">
-              <h2>Chat</h2>
-              <div className="chat-window">
-                {messages.map((msg, index) => (
-                  <div key={index} className="chat-message"><strong>{msg.sender}: </strong>{msg.text}</div>
-                ))}
-              </div>
-              <div className="chat-input">
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-                  placeholder="Type a message..."
-                />
-                <button onClick={sendMessage}>Send</button>
-              </div>
-            </div>
           </div>
 
           {(winner.includes("white") || winner.includes("black") || winner.includes("draw")) && (

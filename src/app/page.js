@@ -24,7 +24,7 @@ export default function Home() {
     })
 
     socket.emitter.once(RequestCodes.SECOND_PLAYER_JOINED, () => {
-      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime }).toString();
+      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: false }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
     requestHost.send();
@@ -32,7 +32,7 @@ export default function Home() {
 
   const startGameAgainstAI = () => {
     const requestVsAI = new Message(socket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
-      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime }).toString();
+      const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: true }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
     requestVsAI.send();
@@ -48,7 +48,7 @@ export default function Home() {
     socket.send(parsedMessage.toString());
 
     socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
-      const queryParams = new URLSearchParams({ host: 'false', minutes: message.data }).toString();
+      const queryParams = new URLSearchParams({ host: 'false', minutes: message.data, vsAI: false }).toString();
       router.replace(`/chessboard?${queryParams}`);
     });
 
