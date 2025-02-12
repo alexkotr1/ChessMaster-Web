@@ -41,6 +41,58 @@ class Chessboard {
 
         return boardState;
     }
+    static isValidFen(fen) {
+        if (typeof fen !== 'string' || !(fen instanceof String)) return false;
+        const fenParts = fen.split(' ');
+
+        if (fenParts.length !== 6) {
+            return false;
+        }
+
+        const [boardFen, turn, castlingRights, enPassant, halfmoveClock, fullmoveNumber] = fenParts;
+
+        const rows = boardFen.split('/');
+        if (rows.length !== 8) {
+            return false;
+        }
+
+        for (let row of rows) {
+            let totalSquares = 0;
+            for (let char of row) {
+                if (isNaN(char)) {
+                    totalSquares++;
+                } else {
+                    totalSquares += parseInt(char);
+                }
+            }
+            if (totalSquares !== 8) {
+                return false;
+            }
+        }
+
+        if (turn !== 'w' && turn !== 'b') {
+            return false;
+        }
+
+        if (!/^[KQkq-]*$/.test(castlingRights)) {
+            return false;
+        }
+
+        if (enPassant !== '-' && !/^[a-h][3-6]$/.test(enPassant)) {
+            return false;
+        }
+
+        if (!/^\d+$/.test(halfmoveClock) || parseInt(halfmoveClock) < 0) {
+            return false;
+        }
+
+        if (!/^\d+$/.test(fullmoveNumber) || parseInt(fullmoveNumber) <= 0) {
+            return false;
+        }
+
+        return true;
+    }
+
 
 }
 

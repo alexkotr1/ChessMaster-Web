@@ -11,7 +11,7 @@ import Message from "@/Message";
 import Utilities from "@/Classes/Utilities";
 import Timer from "@/Classes/Timer";
 import styles from './page.css';
-
+import PromotionDialog from "./PromotionDialog";
 
 export default function Chess() {
   const socket = useSocket();
@@ -60,7 +60,6 @@ export default function Chess() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
   useEffect(() => {
     if (!socket) {
       if (process.env.NODE_ENV === "development") console.log("socket undefined!");
@@ -89,74 +88,87 @@ export default function Chess() {
     update();
   }, []);
 
-  const requestUpgrade = (message) => {
-    setUpgradeMessageID(message.messageID);
-    setShowPromotionDialog(true);
-  }
+
   const updateTimers = (message) => {
     const timers = JSON.parse(message.data);
     whiteTimer.setRemainingTime(timers[0]);
     blackTimer.setRemainingTime(timers[1]);
   }
+
   const registerMessage = (message) => {
-    setMessages(prevMessages => {
-      const newMessages = [...prevMessages, { sender: host ? "Black" : "White", text: message.data }];
-      console.log("New Messages:")
-      console.log(newMessages);
-      return newMessages;
+    setMessages((prevMessages) => {
+      let data;
+      try {
+        data = JSON.parse(message.data);
+      } catch (e) {
+        console.error("Error parsing message data:", e);
+        return prevMessages;
+      }
+      if (!data) return prevMessages;
+      const newMessage = { sender: data.sender, text: data.text };
+      return [...prevMessages, newMessage];
     });
+  };
+
+  const requestUpgrade = (message) => {
+    setUpgradeMessageID(message.messageID);
+    setShowPromotionDialog(true);
   }
-  const updateBoard = async () => {
+
+  const updateBoard = async (fen) => {
+    fen = (fen && Chessboard.isValidFen(fen) ? fen : await getFen())
+    setFen(fen);
+    if (chessboard.whiteTurn) {
+      whiteTimer.start();
+      blackTimer.pause();
+    } else {
+      whiteTimer.pause();
+      blackTimer.start();
+    }
     return new Promise((resolve) => {
-      let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => {
-        setFen(res.data);
-        if (chessboard.whiteTurn) {
-          whiteTimer.start();
-          blackTimer.pause();
-        } else {
-          whiteTimer.pause();
-          blackTimer.start();
-        }
-        let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, host, res => {
+      let legalMovesMessage = new Message(socket, uuid(), RequestCodes.CHECKMATE, host, (res) => {
+        try {
           const response = JSON.parse(res.data);
           const transformed = Object.keys(response).reduce((map, key) => {
             const parts = key.split('/');
             const position = parts[4].toLowerCase() + parts[6];
-            const val = response[key];
-            map[position] = val.map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
+            map[position] = response[key].map(item => `${Utilities.intToChar(parseInt(item[0]))}${item[1]}`);
             return map;
           }, {});
           setLegalMoves(transformed);
+        } catch (error) {
+          console.error("Failed to parse legal moves:", error);
+        }
 
-          let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, message => {
-            if (message.data && message.data !== 'false') {
-              setWinner(message.data.toLowerCase());
-            }
-            resolve(true);
-          });
-
-          checkEnded.send();
+        let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, (message) => {
+          if (message.data && message.data !== 'false') {
+            setWinner(message.data.toLowerCase());
+          }
+          console.log("CHECKENDED PROMOTION DIALOG: " + showPromotionDialog);
+          resolve(true);
         });
 
-        legalMovesMessage.send();
+        checkEnded.send();
       });
 
-      fenMessage.send();
+      legalMovesMessage.send();
     });
   };
-  const onPromotionPieceSelect = (piece, orig, dest) => {
+  const getFen = async () => {
+    return new Promise(resolve => {
+      let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => resolve(res.data));
+      fenMessage.send();
+    })
+  }
+  const onPromotionPieceSelect = (piece) => {
     setShowPromotionDialog(false);
-    let upgradeTo = piece.charAt(1).toLowerCase();
-    if (upgradeTo == "q") upgradeTo = "Vasilissa"
-    else if (upgradeTo == "n") upgradeTo = "Alogo"
-    else if (upgradeTo == "r") upgradeTo = "Pyrgos"
-    else if (upgradeTo == "b") upgradeTo = "Stratigos"
-    let upgradeNotify = new Message(socket, upgradeMessageID, RequestCodes.REQUEST_CHESSBOARD_RESULT, upgradeTo)
+    let upgradeNotify = new Message(socket, upgradeMessageID, RequestCodes.REQUEST_CHESSBOARD_RESULT, piece)
     upgradeNotify.send();
     return true;
   }
 
   const setFen = (fen) => {
+    console.log("Fen = " + fen);
     chessboard.fromFen(fen);
     setBoardState(fen);
   };
@@ -178,6 +190,7 @@ export default function Chess() {
     const legalPieceMoves = legalMoves[sourceSquare];
     return legalPieceMoves && legalPieceMoves.indexOf(targetSquare).indexOf >= 0;
   }
+
 
   const requestMove = async (sourceSquare, targetSquare) => {
     let source = [Utilities.charToInt(sourceSquare.charAt(0)), parseInt(sourceSquare.charAt(1))];
@@ -206,7 +219,7 @@ export default function Chess() {
       blackTimer.setRemainingTime(minutesAllowed * 60 * 1000);
       await updateBoard();
       whiteTimer.start();
-    })
+    });
     const playAgainMessage = new Message(socket, uuid(), RequestCodes.PLAY_AGAIN, null, null);
     playAgainMessage.send();
   }
@@ -224,21 +237,12 @@ export default function Chess() {
     setHighlightedSquares(newHighlights);
   }
   const sendMessage = () => {
-    setMessages(prevMessages => {
-      const newMessages = [...prevMessages, { sender: host ? "Black" : "White", text: messageInput }];
-      console.log("Self messages:")
-      console.log(newMessages);
-      return newMessages;
-    });
     setMessageInput("")
     const chatMessage = new Message(socket, uuid(), RequestCodes.CHAT_MESSAGE, messageInput, null);
     chatMessage.send();
-
   }
 
-  if (!isClient) {
-    return null;
-  }
+  if (!isClient) return null;
 
   return (
     <div className="chess-container">
@@ -261,23 +265,32 @@ export default function Chess() {
 
           <div className="board-chat-container">
             <div className="board-container">
+              <PromotionDialog
+                onPromote={onPromotionPieceSelect}
+                show={showPromotionDialog}
+              ></PromotionDialog>
               <ReactChessboard
                 position={boardState}
                 isDraggablePiece={isDraggablePiece}
                 onPieceDrop={async (sourceSquare, targetSquare, piece) => {
-                  if (processMove) {
-                    const state = chessboard.fenToBoardState(boardState);
-                    delete state[sourceSquare];
-                    state[targetSquare] = piece;
-                    setBoardState(state);
+                  try {
+                    if (processMove) {
+                      const state = chessboard.fenToBoardState(boardState);
+                      delete state[sourceSquare];
+                      state[targetSquare] = piece;
+                      setBoardState(state);
+                      return true;
+                    } else {
+                      return false;
+                    }
+                  } finally {
                     await requestMove(sourceSquare, targetSquare);
-                  } else return false;
+                    console.log("onPieceDrop process has finished.");
+                  }
                 }}
                 onPieceDragBegin={(piece, square) => getLegalMoves(square)}
                 onPieceDragEnd={() => setHighlightedSquares({})}
                 customSquareStyles={highlightedSquares}
-                showPromotionDialog={showPromotionDialog}
-                onPromotionPieceSelect={onPromotionPieceSelect}
                 promotionDialogVariant="modal"
                 boardOrientation={orientation}
                 onPromotionCheck={() => { return false; }}

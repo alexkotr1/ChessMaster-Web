@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const socketInstance = new WebSocket(process.env.NODE_ENV === "development" ? "ws://localhost:8080" : "wss://ws.chessmaster.gr");
+        const socketInstance = new WebSocket(process.env.NODE_ENV === "development" ? "ws://192.168.1.2:8080" : "wss://ws.chessmaster.gr");
         socketInstance.emitter = new WebSocketEventEmitter(socketInstance);
 
         setSocket(socketInstance);
