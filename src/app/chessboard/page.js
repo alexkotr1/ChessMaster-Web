@@ -14,32 +14,32 @@ import styles from './page.css';
 import PromotionDialog from "./PromotionDialog";
 
 export default function Chess() {
-  const socket = useSocket();
-  const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [boardState, setBoardState] = useState("start");
-  const [legalMoves, setLegalMoves] = useState({});
-  const [highlightedSquares, setHighlightedSquares] = useState({});
-  const [showPromotionDialog, setShowPromotionDialog] = useState(false);
-  const [upgradeMessageID, setUpgradeMessageID] = useState("");
-  const [blackTime, setBlackTime] = useState("");
-  const [whiteTime, setWhiteTime] = useState("");
-  const [winner, setWinner] = useState("");
-  const [chessboard] = useState(new Chessboard(true));
-  const searchParams = useSearchParams();
-  const host = searchParams.get('host') == 'true';
-  const minutes = searchParams.get('minutes');
-  const orientation = host ? "white" : "black"
-  const vsAI = searchParams.get('vsAI') == 'true';
-  const minutesAllowed = parseInt(minutes);
-  const [blackTimer, setBlackTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
-    setBlackTime(blackTimer.getRemainingTime() <= 0 ? 0 : blackTimer.getRemainingTime());
-  }))
-  const [whiteTimer, setWhiteTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
-    setWhiteTime(whiteTimer.getRemainingTime() <= 0 ? 0 : whiteTimer.getRemainingTime());
-  }));
-  const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
+  const socket = useSocket(),
+    router = useRouter(),
+    [isClient, setIsClient] = useState(false),
+    [boardState, setBoardState] = useState("start"),
+    [legalMoves, setLegalMoves] = useState({}),
+    [highlightedSquares, setHighlightedSquares] = useState({}),
+    [showPromotionDialog, setShowPromotionDialog] = useState(false),
+    [upgradeMessageID, setUpgradeMessageID] = useState(""),
+    [blackTime, setBlackTime] = useState(""),
+    [whiteTime, setWhiteTime] = useState(""),
+    [winner, setWinner] = useState(""),
+    [chessboard] = useState(new Chessboard(true)),
+    searchParams = useSearchParams(),
+    host = searchParams.get('host') == 'true',
+    minutes = searchParams.get('minutes'),
+    orientation = host ? "white" : "black",
+    vsAI = searchParams.get('vsAI') == 'true',
+    minutesAllowed = parseInt(minutes),
+    [blackTimer, setBlackTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
+      setBlackTime(blackTimer.getRemainingTime() <= 0 ? 0 : blackTimer.getRemainingTime());
+    })),
+    [whiteTimer, setWhiteTimer] = useState(() => new Timer(1000, minutesAllowed * 60 * 1000, () => {
+      setWhiteTime(whiteTimer.getRemainingTime() <= 0 ? 0 : whiteTimer.getRemainingTime());
+    })),
+    [messages, setMessages] = useState([]),
+    [messageInput, setMessageInput] = useState("");
 
 
 
@@ -60,6 +60,7 @@ export default function Chess() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
   useEffect(() => {
     if (!socket) {
       if (process.env.NODE_ENV === "development") console.log("socket undefined!");
@@ -81,12 +82,7 @@ export default function Chess() {
   }, [socket]);
 
 
-  useEffect(() => {
-    async function update() {
-      await updateBoard();
-    }
-    update();
-  }, []);
+  useEffect(() => updateBoard(), []);
 
 
   const updateTimers = (message) => {
@@ -143,8 +139,9 @@ export default function Chess() {
         let checkEnded = new Message(socket, uuid(), RequestCodes.IS_GAME_ENDED, null, (message) => {
           if (message.data && message.data !== 'false') {
             setWinner(message.data.toLowerCase());
+            blackTimer.pause();
+            whiteTimer.pause();
           }
-          console.log("CHECKENDED PROMOTION DIALOG: " + showPromotionDialog);
           resolve(true);
         });
 
@@ -168,7 +165,6 @@ export default function Chess() {
   }
 
   const setFen = (fen) => {
-    console.log("Fen = " + fen);
     chessboard.fromFen(fen);
     setBoardState(fen);
   };
@@ -185,12 +181,6 @@ export default function Chess() {
 
     return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
   }
-
-  const processMove = (sourceSquare, targetSquare) => {
-    const legalPieceMoves = legalMoves[sourceSquare];
-    return legalPieceMoves && legalPieceMoves.indexOf(targetSquare).indexOf >= 0;
-  }
-
 
   const requestMove = async (sourceSquare, targetSquare) => {
     let source = [Utilities.charToInt(sourceSquare.charAt(0)), parseInt(sourceSquare.charAt(1))];
@@ -237,9 +227,9 @@ export default function Chess() {
     setHighlightedSquares(newHighlights);
   }
   const sendMessage = () => {
-    setMessageInput("")
     const chatMessage = new Message(socket, uuid(), RequestCodes.CHAT_MESSAGE, messageInput, null);
     chatMessage.send();
+    setMessageInput("")
   }
 
   if (!isClient) return null;
@@ -274,22 +264,17 @@ export default function Chess() {
                 isDraggablePiece={isDraggablePiece}
                 onPieceDrop={async (sourceSquare, targetSquare, piece) => {
                   try {
-                    if (processMove) {
-                      const state = chessboard.fenToBoardState(boardState);
-                      delete state[sourceSquare];
-                      state[targetSquare] = piece;
-                      setBoardState(state);
-                      return true;
-                    } else {
-                      return false;
-                    }
+                    const state = chessboard.fenToBoardState(boardState);
+                    delete state[sourceSquare];
+                    state[targetSquare] = piece;
+                    setBoardState(state);
+                    return true;
                   } finally {
                     await requestMove(sourceSquare, targetSquare);
-                    console.log("onPieceDrop process has finished.");
                   }
                 }}
                 onPieceDragBegin={(piece, square) => getLegalMoves(square)}
-                onPieceDragEnd={() => setHighlightedSquares({})}
+                onPieceDragEnd={() => ({})}
                 customSquareStyles={highlightedSquares}
                 promotionDialogVariant="modal"
                 boardOrientation={orientation}

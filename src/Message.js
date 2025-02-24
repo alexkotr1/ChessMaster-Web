@@ -41,10 +41,6 @@ class Message {
         return message;
     }
     send() {
-        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-            console.log("WebSocket is not open.");
-            return;
-        }
         this.socket.send(this.toString());
 
         if (this.onReply) {
@@ -52,10 +48,10 @@ class Message {
                 const message = Message.fromString(data);
                 if (message && message.messageID === this.messageID) {
                     this.onReply(data);
-                    this.socket.emitter.off('*', handleReply);
+                    this.socket.off('*', handleReply);
                 }
             };
-            this.socket.emitter.on('*', handleReply);
+            this.socket.on('*', handleReply);
         }
     }
 }

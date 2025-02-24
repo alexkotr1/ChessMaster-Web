@@ -1,26 +1,29 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import WebSocketEventEmitter from "@/app/utils/WebSocketEventEmitter";
+import Socket from "@/app/utils/Socket";
 
 const SocketContext = createContext(null);
 
-export const useSocket = () => {
-    return useContext(SocketContext);
-}
+export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const socketInstance = new WebSocket(process.env.NODE_ENV === "development" ? "ws://192.168.1.2:8080" : "wss://ws.chessmaster.gr");
-        socketInstance.emitter = new WebSocketEventEmitter(socketInstance);
+        const socketUrl = process.env.NODE_ENV === "development"
+            ? "ws://192.168.1.2:8080"
+            : "wss://ws.chessmaster.gr";
 
-        setSocket(socketInstance);
+        const socket = new Socket(socketUrl);
+        setSocket(socket);
+
         return () => {
-            socketInstance.close();
+            socket.close();
         };
     }, []);
 
     return (
-        <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+        <SocketContext.Provider value={socket}>
+            {children}
+        </SocketContext.Provider>
     );
 };

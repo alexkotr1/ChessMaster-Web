@@ -18,34 +18,36 @@ export default function Home() {
     setInviteCode(e.target.value);
   };
 
+
+
   const generateInviteCode = () => {
     const requestHost = new Message(socket, uuid(), RequestCodes.HOST_GAME, selectedTime, message => {
       setGeneratedCode(message.data);
     })
 
-    socket.emitter.once(RequestCodes.SECOND_PLAYER_JOINED, () => {
+    socket.once(RequestCodes.SECOND_PLAYER_JOINED, () => {
       const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: false }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
     requestHost.send();
   };
 
+
+
   const startGameAgainstAI = () => {
-    const requestVsAI = new Message(socket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
+    const requestVsAI = new Message(webSosocketcket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
       const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: true }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
     requestVsAI.send();
   };
 
-  const joinGameWithCode = (inviteCode) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      if (process.env.NODE_ENV === "development") console.log("WebSocket is not open.");
-      return;
-    }
 
+
+
+  const joinGameWithCode = (inviteCode) => {
     const parsedMessage = new Message(socket, uuid(), RequestCodes.JOIN_GAME, inviteCode);
-    socket.send(parsedMessage.toString());
+    parsedMessage.send();
 
     socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
       const queryParams = new URLSearchParams({ host: 'false', minutes: message.data, vsAI: false }).toString();
@@ -53,6 +55,8 @@ export default function Home() {
     });
 
   };
+
+
 
   return (
     <div className="home-container">
