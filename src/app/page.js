@@ -35,7 +35,7 @@ export default function Home() {
 
 
   const startGameAgainstAI = () => {
-    const requestVsAI = new Message(webSosocketcket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
+    const requestVsAI = new Message(socket, uuid(), RequestCodes.START_AI_GAME, selectedTime, () => {
       const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: true }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
