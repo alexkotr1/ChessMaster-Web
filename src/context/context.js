@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         const socketUrl = process.env.NODE_ENV === "development"
             ? "ws://192.168.1.2:8080"
-            : "wss://ws.chessmaster.gr";
+            : "wss://ws.chessmaster.gr:5554";
 
         const socket = new Socket(socketUrl);
         setSocket(socket);
