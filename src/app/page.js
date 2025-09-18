@@ -22,14 +22,15 @@ export default function Home() {
 
   const generateInviteCode = () => {
     const requestHost = new Message(socket, uuid(), RequestCodes.HOST_GAME, selectedTime, message => {
+      console.log("Received code: " + message.data.data);
       setGeneratedCode(message.data);
     })
+    requestHost.send();
 
     socket.once(RequestCodes.SECOND_PLAYER_JOINED, () => {
       const queryParams = new URLSearchParams({ host: 'true', minutes: selectedTime, vsAI: false }).toString();
       router.replace(`/chessboard?${queryParams}`);
     })
-    requestHost.send();
   };
 
 
@@ -49,7 +50,7 @@ export default function Home() {
     const parsedMessage = new Message(socket, uuid(), RequestCodes.JOIN_GAME, inviteCode);
     parsedMessage.send();
 
-    socket.emitter.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
+    socket.once(RequestCodes.JOIN_GAME_SUCCESS, message => {
       const queryParams = new URLSearchParams({ host: 'false', minutes: message.data, vsAI: false }).toString();
       router.replace(`/chessboard?${queryParams}`);
     });

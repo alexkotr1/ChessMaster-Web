@@ -77,6 +77,10 @@ class Socket extends WebSocket {
         if (this.events[event]) {
             this.events[event].forEach((callback) => callback(data));
         }
+
+        if (event !== "*" && this.events["*"]) {
+            this.events["*"].forEach((callback) => callback(data));
+        }
     }
 }
 

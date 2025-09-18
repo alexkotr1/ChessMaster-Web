@@ -6,6 +6,7 @@ class Message {
         this.data = data;
         this.onReply = onReply;
     }
+
     toJSON() {
         return {
             messageID: this.messageID,
@@ -13,6 +14,7 @@ class Message {
             data: this.data
         };
     }
+
     toString() {
         try {
             return JSON.stringify(this.toJSON());
@@ -40,19 +42,48 @@ class Message {
         }
         return message;
     }
-    send() {
-        this.socket.send(this.toString());
 
+    send() {
+        console.log("this.onReply = " + this.onReply + " " + this.code);
+
+        if (!this.socket || typeof this.socket.send !== 'function') {
+            console.error("Message.send: invalid or missing socket.");
+            return;
+        }
+
+        const payload = this.toString();
+        if (payload == null) {
+            console.error("Message.send: refusing to send null/invalid payload.");
+            return;
+        }
+
+        let handleReply;
         if (this.onReply) {
-            const handleReply = (data) => {
+            let done = false;
+
+            handleReply = (data) => {
+                if (done) return;
+
                 const message = Message.fromString(data);
-                if (message && message.messageID === this.messageID) {
-                    this.onReply(data);
-                    this.socket.off('*', handleReply);
+                const candidate = message || (typeof data === 'object' && data !== null ? data : null);
+
+                if (candidate && candidate.messageID === this.messageID) {
+                    done = true;
+                    try {
+                        this.onReply(data);
+                    } finally {
+                        this.socket.off('*', handleReply);
+                        this.socket.off(this.code, handleReply);
+                    }
                 }
             };
+
             this.socket.on('*', handleReply);
+            this.socket.on(this.code, handleReply);
         }
+
+        this.socket.send(payload);
     }
 }
+
 export default Message;

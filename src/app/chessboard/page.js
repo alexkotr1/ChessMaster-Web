@@ -66,23 +66,25 @@ export default function Chess() {
       if (process.env.NODE_ENV === "development") console.log("socket undefined!");
       return;
     }
-    const emitter = socket.emitter;
     whiteTimer.start();
-    emitter.on(RequestCodes.ENEMY_MOVE, updateBoard);
-    emitter.on(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
-    emitter.on(RequestCodes.TIMER, updateTimers);
-    emitter.on(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
+    socket.on(RequestCodes.ENEMY_MOVE, updateBoard);
+    socket.on(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
+    socket.on(RequestCodes.TIMER, updateTimers);
+    socket.on(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
 
     return () => {
-      emitter.off(RequestCodes.ENEMY_MOVE, updateBoard);
-      emitter.off(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
-      emitter.off(RequestCodes.TIMER, updateTimers);
-      emitter.off(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
+      socket.off(RequestCodes.ENEMY_MOVE, updateBoard);
+      socket.off(RequestCodes.REQUEST_UPGRADE, requestUpgrade);
+      socket.off(RequestCodes.TIMER, updateTimers);
+      socket.off(RequestCodes.CHAT_MESSAGE_NOTIFICATION, registerMessage);
     };
   }, [socket]);
 
 
-  useEffect(() => updateBoard(), []);
+  useEffect(() => {
+    updateBoard()
+    return undefined;
+  }, []);
 
 
   const updateTimers = (message) => {
@@ -112,6 +114,7 @@ export default function Chess() {
   }
 
   const updateBoard = async (fen) => {
+    if (!socket) return undefined;
     fen = (fen && Chessboard.isValidFen(fen) ? fen : await getFen())
     setFen(fen);
     if (chessboard.whiteTurn) {
@@ -152,6 +155,7 @@ export default function Chess() {
     });
   };
   const getFen = async () => {
+    if (!socket) return undefined;
     return new Promise(resolve => {
       let fenMessage = new Message(socket, uuid(), RequestCodes.REQUEST_FEN, null, res => resolve(res.data));
       fenMessage.send();
@@ -201,9 +205,15 @@ export default function Chess() {
     if ((piece.startsWith("w") && host && chessboard.whiteTurn) || (!host && piece.startsWith("b") && !chessboard.whiteTurn)) return true;
     return false;
   }
-
+  const highlightSquare = (square, styles) => ({
+    [square]: {
+      background: styles?.background ?? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)",
+      borderRadius: styles?.borderRadius ?? "150%",
+      boxShadow: styles?.boxShadow,
+    }
+  });
   const resetGame = () => {
-    socket.emitter.once(RequestCodes.PLAY_AGAIN_ACCEPTED, async () => {
+    socket.once(RequestCodes.PLAY_AGAIN_ACCEPTED, async () => {
       setWinner("false");
       whiteTimer.setRemainingTime(minutesAllowed * 60 * 1000);
       blackTimer.setRemainingTime(minutesAllowed * 60 * 1000);
@@ -216,16 +226,27 @@ export default function Chess() {
 
   const getLegalMoves = (square) => {
     const moves = legalMoves[square];
-    const newHighlights = {};
-    if (!moves) return undefined;
-    moves.forEach(move => {
-      newHighlights[move] = {
-        background: "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)",
-        borderRadius: "150%"
-      };
+    if (!moves) {
+      setHighlightedSquares({});
+      return undefined;
+    }
+
+    const destinationHighlights = moves.reduce((acc, move) => ({
+      ...acc,
+      ...highlightSquare(move),
+    }), {});
+
+    setHighlightedSquares({
+      ...highlightSquare(square, {
+        background: "radial-gradient(circle, rgba(255,255,0,.3) 25%, transparent 25%)",
+        borderRadius: "0%",
+        boxShadow: "inset 0 0 10px rgba(255,255,0,.75)",
+      }),
+      ...destinationHighlights,
     });
-    setHighlightedSquares(newHighlights);
   }
+
+  const clearHighlightedSquares = () => setHighlightedSquares({});
   const sendMessage = () => {
     const chatMessage = new Message(socket, uuid(), RequestCodes.CHAT_MESSAGE, messageInput, null);
     chatMessage.send();
@@ -274,7 +295,7 @@ export default function Chess() {
                   }
                 }}
                 onPieceDragBegin={(piece, square) => getLegalMoves(square)}
-                onPieceDragEnd={() => ({})}
+                onPieceDragEnd={clearHighlightedSquares}
                 customSquareStyles={highlightedSquares}
                 promotionDialogVariant="modal"
                 boardOrientation={orientation}
